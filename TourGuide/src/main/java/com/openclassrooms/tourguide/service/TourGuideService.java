@@ -1,20 +1,14 @@
 package com.openclassrooms.tourguide.service;
 
 import com.openclassrooms.tourguide.helper.InternalTestHelper;
+import com.openclassrooms.tourguide.service.dto.AttractionDTO;
 import com.openclassrooms.tourguide.tracker.Tracker;
 import com.openclassrooms.tourguide.user.User;
 import com.openclassrooms.tourguide.user.UserReward;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -27,6 +21,7 @@ import gpsUtil.location.Attraction;
 import gpsUtil.location.Location;
 import gpsUtil.location.VisitedLocation;
 
+import rewardCentral.RewardCentral;
 import tripPricer.Provider;
 import tripPricer.TripPricer;
 
@@ -95,13 +90,28 @@ public class TourGuideService {
 		return visitedLocation;
 	}
 
-	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
-		List<Attraction> nearbyAttractions = new ArrayList<>();
-		for (Attraction attraction : gpsUtil.getAttractions()) {
-			if (rewardsService.isWithinAttractionProximity(attraction, visitedLocation.location)) {
-				nearbyAttractions.add(attraction);
-			}
-		}
+    public List<AttractionDTO> getNearByAttractions(VisitedLocation visitedLocation) {
+        List<Attraction> allAttractions = gpsUtil.getAttractions();
+        // Sort attractions by distance to the user
+        List<AttractionDTO> nearbyAttractions = allAttractions.stream().map(attraction -> {
+                    double distance = rewardsService.getDistance(attraction, visitedLocation.location);
+                    RewardCentral rewardsCentral = new RewardCentral();
+                    int rewardPoints = rewardsCentral.getAttractionRewardPoints(attraction.attractionId, visitedLocation.userId);
+
+                    return new AttractionDTO(
+                            attraction.attractionName,
+                            attraction.latitude,
+                            attraction.longitude,
+                            visitedLocation.location.latitude,
+                            visitedLocation.location.longitude,
+                            distance,
+                            rewardPoints
+                    );
+                })
+                // Sort by distance and limit to the top 5 closest attractions
+                .sorted(Comparator.comparingDouble(AttractionDTO::getDistance))
+                .limit(5)
+                .collect(Collectors.toList());
 
 		return nearbyAttractions;
 	}
