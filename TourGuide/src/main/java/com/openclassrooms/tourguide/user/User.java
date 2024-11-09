@@ -72,9 +72,11 @@ public class User {
 			userRewards.put(attractionName, userReward);
 		}
 	}
-	
+
 	public List<UserReward> getUserRewards() {
-		return userRewards.values().stream().toList();
+		synchronized (userRewards) {
+			return new ArrayList<>(userRewards.values());
+		}
 	}
 	
 	public UserPreferences getUserPreferences() {

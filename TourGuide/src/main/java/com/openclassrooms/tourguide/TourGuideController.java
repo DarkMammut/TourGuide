@@ -1,6 +1,7 @@
 package com.openclassrooms.tourguide;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import com.openclassrooms.tourguide.service.dto.AttractionDTO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,13 +29,13 @@ public class TourGuideController {
     }
     
     @RequestMapping("/getLocation") 
-    public VisitedLocation getLocation(@RequestParam String userName) {
+    public CompletableFuture<VisitedLocation> getLocation(@RequestParam String userName) {
     	return tourGuideService.getUserLocation(getUser(userName));
     }
 
     @RequestMapping("/getNearbyAttractions") 
-    public List<AttractionDTO> getNearbyAttractions(@RequestParam String userName) {
-    	VisitedLocation visitedLocation = tourGuideService.getUserLocation(getUser(userName));
+    public CompletableFuture<List<AttractionDTO>> getNearbyAttractions(@RequestParam String userName) {
+    	CompletableFuture<VisitedLocation> visitedLocation = tourGuideService.getUserLocation(getUser(userName));
     	return tourGuideService.getNearByAttractions(visitedLocation);
     }
     
