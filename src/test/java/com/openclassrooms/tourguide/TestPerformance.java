@@ -16,6 +16,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -46,27 +47,33 @@ public class TestPerformance {
 
     //@Disabled
     @Test
-    public void highVolumeTrackLocation() {
+    public void highVolumeTrackLocation() throws InterruptedException {
         GpsUtil gpsUtil = new GpsUtil();
         RewardsService rewardsService = new RewardsService(gpsUtil, new RewardCentral());
-        // Users should be incremented up to 100,000, and test finishes within 15
-        // minutes
+
+        // Augmenter les utilisateurs à 100 000
         InternalTestHelper.setInternalUserNumber(10000);
         TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
 
-        List<User> allUsers = new ArrayList<>();
-        allUsers = tourGuideService.getAllUsers();
+        List<User> allUsers = tourGuideService.getAllUsers();
 
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        for (User user : allUsers) {
-            tourGuideService.trackUserLocation(user);
-        }
+
+        // Collecter les CompletableFuture retournés par trackUserLocation
+        List<CompletableFuture<VisitedLocation>> futures = allUsers.stream()
+                .map(tourGuideService::trackUserLocation)
+                .toList();
+
+        // Attendre que tous les CompletableFuture soient complétés
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
         stopWatch.stop();
         tourGuideService.tracker.stopTracking();
 
         System.out.println("highVolumeTrackLocation: Time Elapsed: "
                 + TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()) + " seconds.");
+
         assertTrue(TimeUnit.MINUTES.toSeconds(15) >= TimeUnit.MILLISECONDS.toSeconds(stopWatch.getTime()));
     }
 
@@ -77,7 +84,7 @@ public class TestPerformance {
         RewardsService rewardsService = new RewardsService(gpsUtil, new RewardCentral());
 
         // Users should be incremented up to 100,000, and test finishes within 20 minutes
-        InternalTestHelper.setInternalUserNumber(10000);
+        InternalTestHelper.setInternalUserNumber(100000);
 
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
@@ -92,11 +99,12 @@ public class TestPerformance {
                 u.addToVisitedLocations(new VisitedLocation(u.getUserId(), attraction, new Date()))
         );
 
-        // Wait for each user's reward calculation to complete
+        // Collecter les CompletableFuture retournés par calculateRewards
         List<CompletableFuture<Void>> futures = allUsers.stream()
                 .map(rewardsService::calculateRewards)
                 .toList();
 
+        // Attendre que tous les CompletableFuture soient complétés
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         for (User user : allUsers) {
